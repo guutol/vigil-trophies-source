@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  agent:
+    name: agent (go test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.x'
+          check-latest: true
+          cache: false   # one small module (golang.org/x/sys), nothing worth caching
+      - run: go vet ./...
+      - run: go test ./...
+      # The tray app and the registry/mutex code are Windows only: at least vet and build them.
+      - name: vet and build for Windows
+        env:
+          GOOS: windows
+          GOARCH: amd64
+        run: |
+          go vet ./...
+          go build -o /dev/null ./cmd/vigil-agent
+          go build -ldflags "-H windowsgui" -o /dev/null ./cmd/vigil-agent-tray

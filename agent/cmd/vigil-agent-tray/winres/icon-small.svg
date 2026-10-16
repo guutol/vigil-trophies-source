@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 112" fill="none">
+  <title>Vigil — vela com olho na chama</title>
+  <g stroke="#8fc7e8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M48 5C43 20 26 29 26 44c0 13 10 23 22 23s22-10 22-23C70 29 53 20 48 5Z" stroke-width="7"/>
+    <path d="M32 44c9-12 23-12 32 0-9 12-23 12-32 0Z" stroke-width="5"/>
+    <path d="M48 67v7" stroke-width="5"/>
+    <path d="M38 79h20v23H38Z" stroke-width="6"/>
+    <path d="M29 107h38" stroke-width="6"/>
+  </g>
+  <path d="M48 37l5 7-5 7-5-7Z" fill="#8fc7e8"/>
+</svg>
