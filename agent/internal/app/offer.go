@@ -16,7 +16,9 @@ import (
 //
 //	2: portable bbport (bbport-windows/user, before its first log; the launcher's game folder),
 //	   and bbport user folders are no longer taken for shadPS4.
-const DetectVersion = 2
+//	3: the God of War III port (gow3_pc): its launcher's saves folder, its package, the AppImage
+//	   data folder; its saves folder is no longer taken for bbport.
+const DetectVersion = 3
 
 // Offer is one folder in the "Sources found" dialog: every source type found in it (bbport's
 // user folder can hold both the patch file and the log), and what it holds. Replaces: configured
@@ -175,5 +177,5 @@ func OfferCandidates(offers []Offer) []detect.Candidate {
 
 // SummarizeCandidate is BuildOffers' summarize in production (read only, 10 s per source at most).
 func SummarizeCandidate(c detect.Candidate) Summary {
-	return Summarize(context.Background(), config.SourceConfig{Type: c.Type, Path: c.Path, GameDir: c.GameDir})
+	return Summarize(context.Background(), config.SourceConfig{Type: c.Type, Path: c.Path, GameDir: c.GameDir, UpdateDir: c.UpdateDir})
 }

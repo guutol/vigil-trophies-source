@@ -62,11 +62,13 @@ func ParseLine(line string) (int, bool) {
 	return id, true
 }
 
-// Source follows one bbport output file.
+// Source follows one runtime output file: bbport's, or the God of War III port's (NewGOW3).
 type Source struct {
+	name    string // the source name sent with each unlock (bbport-log or gow3-log)
 	tail    Tail
-	journal Tail
+	journal Tail // bbport's trophies.log; unused (empty path) for other ports
 	game    Game
+	blocked error // the game could not be identified: nothing is read or reported
 	unlocks map[string]source.Unlock
 	order   []string
 	// Now gives the unlock time: the moment the line was read (the log has no timestamps).
@@ -85,7 +87,7 @@ func New(logPath string, game Game) (*Source, error) {
 	if game.TrophySetID == "" && game.TitleID == "" {
 		game.TitleID = DefaultTitleID
 	}
-	return &Source{tail: Tail{Path: abs}, journal: Tail{Path: filepath.Join(filepath.Dir(abs), TrophyLogName)}, game: game, unlocks: map[string]source.Unlock{}, Now: time.Now}, nil
+	return &Source{name: source.BBPortLog, tail: Tail{Path: abs}, journal: Tail{Path: filepath.Join(filepath.Dir(abs), TrophyLogName)}, game: game, unlocks: map[string]source.Unlock{}, Now: nowFunc}, nil
 }
 
 // ForUserDir follows <userDir>/last_run.log, as the Windows launcher writes it.
@@ -93,8 +95,19 @@ func ForUserDir(userDir string, game Game) (*Source, error) {
 	return New(filepath.Join(userDir, LogName), game)
 }
 
+// nowFunc is the default clock (the log lines have no timestamps).
+var nowFunc = time.Now
+
 // Name implements source.Source.
-func (s *Source) Name() string { return source.BBPortLog }
+func (s *Source) Name() string {
+	if s.name == "" {
+		return source.BBPortLog
+	}
+	return s.name
+}
+
+// Unidentified is why this source reports nothing (nil when it reports normally).
+func (s *Source) Unidentified() error { return s.blocked }
 
 // Path is the file being followed.
 func (s *Source) Path() string { return s.tail.Path }
@@ -104,11 +117,18 @@ func (s *Source) Game() Game { return s.game }
 
 // Scan reads the new lines and returns every unlock seen so far (the syncer drops known ones).
 func (s *Source) Scan(ctx context.Context) ([]source.Unlock, error) {
+	if s.blocked != nil {
+		return nil, s.blocked // not even read: the lines stay for when the game is identified
+	}
 	// Read persistent timestamps first; both formats share the existing event identity.
-	journal, _, journalErr := s.journal.Lines()
-	for _, line := range journal {
-		if id, when, ok := ParseTrophyLine(line); ok {
-			s.addAt(id, when)
+	var journalErr error
+	if s.journal.Path != "" {
+		var journal []string
+		journal, _, journalErr = s.journal.Lines()
+		for _, line := range journal {
+			if id, when, ok := ParseTrophyLine(line); ok {
+				s.addAt(id, when)
+			}
 		}
 	}
 	lines, _, err := s.tail.Lines()
@@ -134,7 +154,7 @@ func (s *Source) add(id int) {
 }
 
 func (s *Source) addAt(id int, when time.Time) {
-	u := source.Unlock{Source: source.BBPortLog, TrophySetID: s.game.TrophySetID, TitleID: s.game.TitleID,
+	u := source.Unlock{Source: s.Name(), TrophySetID: s.game.TrophySetID, TitleID: s.game.TitleID,
 		TrophyID: id, UnlockedAt: source.FormatTime(when)}
 	key := source.EventID(u)
 	if _, ok := s.unlocks[key]; !ok {

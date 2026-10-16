@@ -2,13 +2,29 @@
 
 Versões do app **Vigil** (`agent/`), publicadas em https://github.com/guutol/vigil-agent-releases. Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
+## [v0.1.0-beta.9] - 2026-10-16
+
+Notas completas: [`docs/release-notes/v0.1.0-beta.9.md`](docs/release-notes/v0.1.0-beta.9.md).
+
+### Incluído
+
+- Fonte `gow3-log` (beta): o `last_run.log` do launcher do port do God of War III (gow3_pc). Detecção
+  pelas configurações do launcher, pelo pacote e pelo port em execução, sem varrer o disco; conjunto
+  de troféus lido do dump (`param.sfo`, `npbind.dat`, pasta de update primeiro). Sem identificação,
+  nada é enviado (nunca como Bloodborne).
+
+### Corrigido
+
+- A pasta de saves do port do God of War III era classificada como `bbport-log` e recebia a pasta do
+  jogo do Bloodborne.
+
 ## [v0.1.0-beta.5] - 2026-10-14
 
 Notas completas: [`docs/release-notes/v0.1.0-beta.5.md`](docs/release-notes/v0.1.0-beta.5.md).
 
 ### Corrigido
 
-- Linhas do `last_run.log` terminadas em `
+- Linhas do `last_run.log` terminadas em `
 ` (um dos modos do launcher do bbport) não eram
   lidas: a conquista não era enviada nem anunciada.
 - Descoberta automática do bbport portátil (`bbport-windows`/`bbport-linux`, antes da primeira

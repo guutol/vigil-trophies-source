@@ -154,7 +154,7 @@ sincronização, autostart, mensagens), `internal/tray` (Win32: ícone, menu, ba
 | `status` | Servidor, se está vinculado (sem mostrar o token), fontes, ids conhecidos e itens na fila. |
 | `unlink` | Apaga o token local. |
 | `sources detect [--in PASTA]...` | Sugere pastas de fontes e mostra quantos troféus cada uma tem. **Só leitura**, não envia nada. `--in` olha mais uma pasta (e as subpastas diretas). |
-| `sources add <tipo> <pasta> [--game-dir PASTA]` | Adiciona uma fonte: `bbport-log` (pasta `user` do bbport oficial; `--game-dir` = pasta do jogo, que diz o conjunto de troféus), `bbport` (pasta `user` com o patch), `rpcs3` (pasta com `dev_hdd0`) ou `shadps4` (pasta `user`, ou a do emulador que a contém). |
+| `sources add <tipo> <pasta> [--game-dir PASTA] [--update-dir PASTA]` | Adiciona uma fonte: `bbport-log` (pasta `user` do bbport oficial; `--game-dir` = pasta do jogo, que diz o conjunto de troféus), `gow3-log` (pasta de saves do port do God of War III; `--game-dir`/`--update-dir` = pastas do jogo e do update, senão as do launcher do port; sem identificação nada é enviado), `bbport` (pasta `user` com o patch), `rpcs3` (pasta com `dev_hdd0`) ou `shadps4` (pasta `user`, ou a do emulador que a contém). |
 | `sources remove <tipo> <pasta>` | Remove uma fonte. |
 | `sources list` | Lista as fontes configuradas. |
 
@@ -280,6 +280,13 @@ Testes (todos com arquivos **sintéticos** criados no próprio teste, nunca arqu
   sintéticos e corrompidos, e que o scan não altera o log. `play`: o próprio binário de teste faz
   o papel do jogo; confere que os argumentos chegam literais (sem shell), que a saída aparece, que
   só o troféu válido é enviado e que o código de saída do jogo é informado.
+- gow3-log: identificação pelo dump sintético (base, update com e sem `npbind.dat`, update sem
+  `eboot.bin`, outra região pelo título), sem fallback (sem pasta, pasta vazia, dump do Bloodborne,
+  sem conjunto, dois conjuntos), CR CR LF, duplicata, linha incompleta, log reescrito/encurtado, o
+  `trophies.log` do bbport ignorado, nada enviado nem perdido sem identificação, dois ports com o
+  mesmo id de troféu; detecção antes do primeiro jogo, `user_dir` personalizado e vazio, outro disco,
+  port em execução, `GOW3_DATA_DIR`, AppImage, nunca como bbport; motor -> API -> notificação com
+  fila offline. Nenhum teste com o jogo real.
 - RPCS3: `TROPUSR.DAT` montado byte a byte; magic errado, arquivo truncado em vários pontos,
   tabelas demais, contagem absurda, offset fora do arquivo/overflow, id > 255, id repetido, tipo de
   entrada errado, arquivo grande demais, conversão e limites do timestamp, pasta de conjunto

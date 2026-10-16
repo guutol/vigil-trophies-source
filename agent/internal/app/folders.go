@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/vigil-tracker/agent/internal/config"
+	"github.com/vigil-tracker/agent/internal/source/bbportlog"
 	"github.com/vigil-tracker/agent/internal/source/detect"
 )
 
@@ -58,6 +59,11 @@ func (f Folder) Counts() (games, unlocks int) {
 func (f Folder) Status(t Text, st Status) string {
 	if info, err := os.Stat(f.Path); err != nil || !info.IsDir() {
 		return t.T("folder_status_missing")
+	}
+	for _, s := range f.Sources {
+		if bbportlog.IsUnidentified(s.Err) {
+			return t.T("folder_status_gow3_unidentified")
+		}
 	}
 	for _, s := range f.Sources {
 		if s.Err != nil {

@@ -3,11 +3,12 @@
 [English](SOURCES.md) · **Português**
 
 O `vigil-agent` lê os troféus que ports e emuladores gravam no disco do jogador e envia pro
-servidor. Cada lugar de onde ele lê é uma **fonte**. Hoje são quatro:
+servidor. Cada lugar de onde ele lê é uma **fonte**. Hoje são cinco:
 
 | Fonte | Plataforma do conjunto | O que o agent lê | Identifica o jogo por |
 |---|---|---|---|
 | `bbport-log` | `ps4` (o conjunto original) | `user/last_run.log` do launcher do bbport **oficial** (sem patch), ou a saída do jogo via `vigil-agent play` | pasta do jogo (`sce_sys/npbind.dat` e `param.sfo`) |
+| `gow3-log` | o conjunto que o dump indica (`ps4`) | `<pasta de saves>/last_run.log` do launcher do port do God of War III (gow3_pc) | pasta do jogo/update (`sce_sys/npbind.dat` e `param.sfo`); nunca chutado |
 | `bbport` | `ps4` (o conjunto original) | `user/trophies.jsonl` (bbport com o patch do Vigil) | title id (`CUSA03173`) |
 | `rpcs3` | `ps3` | `dev_hdd0/home/<usuário>/trophy/<NPWR…>/TROPUSR.DAT` | conjunto de troféus (nome da pasta) |
 | `shadps4` | `ps4` | `user/home/<id>/trophy/<NPWR…>.xml` (e o layout antigo em `game_data`) | conjunto de troféus (nome do arquivo / `<npcommid>`) |
@@ -56,9 +57,9 @@ fontes incertas sem nenhum jogo não aparecem na pergunta da bandeja. Fontes na 
 juntas, com quantos jogos e troféus cada uma tem.
 
 O `detect` **não varre o disco**: confere uma lista fixa de pastas de instalação (Program Files,
-`%AppData%`, `%LocalAppData%`, as equivalentes de Linux/macOS e a `user_dir` do launcher do
-bbport) e olha só **um nível** dentro da pasta do usuário, Área de Trabalho, Downloads, Documentos
-e `C:\Games`. Pra olhar outra pasta: `vigil-agent sources detect --in D:\Emuladores`.
+`%AppData%`, `%LocalAppData%`, as equivalentes de Linux/macOS e as pastas dos launchers do
+bbport e do God of War III) e olha só **um nível** dentro da pasta do usuário, Área de Trabalho,
+Downloads, Documentos e `Games` de cada disco fixo (`C:\Games`, `D:\Games`...). Pra olhar outra pasta: `vigil-agent sources detect --in D:\Emuladores`.
 
 ## bbport oficial (`bbport-log`, sem patch)
 
@@ -117,6 +118,48 @@ vigil-agent play bbport --game-dir /caminho/CUSA03173 -- bash /caminho/do/bbport
 - O `run.sh` do port recebe as configurações do launcher por variáveis de ambiente; o `play` usa o
   ambiente do terminal. Se você muda opções no launcher, rode o jogo pelo launcher uma vez ou exporte
   as variáveis antes.
+
+## Port do God of War III (`gow3-log`, gow3_pc)
+
+O port de PC do God of War III Remastered ([gow3_pc](https://github.com/FelipePrado0/gow3_pc))
+imprime a mesma linha do bbport quando o jogo desbloqueia um troféu (`src/runtime_services.c`,
+`trophy_unlock`), e o launcher dele grava a saída do jogo em **`<pasta de saves>/last_run.log`**
+(reescrito a cada execução, pela janela do launcher e com `--play`). O jogo desliga o buffer do
+stdout no `main()`, então a linha sai na hora. Isso foi conferido no código do port (tag
+`windows-v2.4.0`), ainda não numa partida de verdade.
+
+- **Detecção** (sem varrer o disco): as configurações do launcher do port
+  (`%APPDATA%\gow3-launcher\settings.json`, ou `$XDG_CONFIG_HOME/gow3-launcher/settings.json` /
+  `~/.config/...` no Linux) dão `game_dir`, `update_dir` e `user_dir`; `user_dir` vazio é a pasta
+  `user` ao lado do port. O agent também reconhece o próprio pacote (`gow3-windows`, com
+  `bin/gow3-probe.exe`) nas pastas de sempre, ao lado da pasta do jogo configurada (outro disco), um
+  port em execução, `GOW3_DATA_DIR` e a pasta de dados do AppImage (`~/.local/share/gow3`). Ele é
+  encontrado **antes do primeiro troféu**, e pastas que você parou de acompanhar não voltam a ser
+  oferecidas.
+- **Identificação**: o conjunto vem do dump, do jeito que o launcher lê: a pasta de update quando
+  tem `eboot.bin`, senão a pasta do jogo; o `sce_sys/param.sfo` precisa ser do God of War III
+  (`CUSA01623`, `CUSA01715`, `CUSA01720`, ou título com "God of War III") e o
+  `sce_sys/npbind.dat` diz o conjunto `NPWR…`. Nada é chutado: **sem isso, nada é enviado** (a pasta
+  mostra "Jogo não identificado"), e o log nunca é enviado como Bloodborne. As linhas continuam no
+  arquivo e são lidas quando a pasta do jogo for definida (no launcher do port ou com
+  `--game-dir`/`--update-dir`).
+- Manual: `vigil-agent sources add gow3-log "C:\...\gow3-windows\user" --game-dir "D:\Games\CUSA01623"`
+  (e `--update-dir`, se o launcher tiver um).
+- A leitura é a mesma do `bbport-log`: só a linha exata, finais `\r\r\n`, linha incompleta
+  esperada, log reescrito/trocado/encurtado lido do começo, `event_id` determinístico (sem
+  duplicar), fila offline. Um `trophies.log` ao lado não é lido (esse diário é do bbport).
+- **Data**: o log não tem data, então `unlocked_at` é a hora em que o agent leu a linha.
+- **Catálogo**: os eventos vão pro conjunto que o dump indica. O catálogo já tem o conjunto de PS4
+  `NPWR08268_00` ("God of War III Remastered", plataforma `ps4`), e os desbloqueios do port contam
+  nele com "Jogado em: port de PC". Se o seu dump indicar outro conjunto (outra região), os
+  desbloqueios ficam pendentes até o catálogo desse conjunto ser adicionado e aprovado; nada é juntado
+  pelo nome, e o jogo de PS3 (RPCS3) continua sendo outro conjunto. O port não consegue propor
+  catálogo sozinho (o arquivo de troféus dele é criptografado).
+- **Limitações**:
+  - Deixe o agent aberto enquanto joga: o launcher reescreve o log a cada execução, e um log antigo
+    sobrescrito não tem como ser recuperado.
+  - Com a opção do launcher "fechar o launcher ao jogar" ligada, o botão JOGAR **não** grava log.
+    Desligue a opção, ou abra com `--play` (atalho), que sempre grava.
 
 ## bbport com o patch do Vigil (`bbport`)
 
@@ -196,8 +239,8 @@ O shadPS4 grava o estado dos troféus em XML:
 
 ## Onde foi jogado (`played_on`)
 
-Cada desbloqueio guarda a fonte (`origin`) e, a partir dela, onde o jogo rodou: `bbport` e
-`bbport-log` → **port de PC** (`pc-port`), `rpcs3` → **emulador no PC (PS3)** (`pc-emulator-ps3`),
+Cada desbloqueio guarda a fonte (`origin`) e, a partir dela, onde o jogo rodou: `bbport`,
+`bbport-log` e `gow3-log` → **port de PC** (`pc-port`), `rpcs3` → **emulador no PC (PS3)** (`pc-emulator-ps3`),
 `shadps4` → **emulador no PC (PS4)** (`pc-emulator-ps4`). O site mostra o selo "Jogado em" em cada
 troféu do perfil e na lista de quem platinou, e a página do jogo filtra por lugar. Uma fonte nova
 precisa dizer o seu `played_on` em `PlayedOn.fromSource` (servidor).

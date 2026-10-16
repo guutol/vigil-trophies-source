@@ -3,11 +3,12 @@
 **English** · [Português](SOURCES.pt-BR.md)
 
 `vigil-agent` reads the trophies that ports and emulators write to the player's disk and sends them to
-the server. Each place it reads from is a **source**. There are four today:
+the server. Each place it reads from is a **source**. There are five today:
 
 | Source | Trophy set platform | What the agent reads | Identifies the game by |
 |---|---|---|---|
 | `bbport-log` | `ps4` (the original set) | `user/last_run.log` from the **official** bbport launcher (no patch), or the game output via `vigil-agent play` | game folder (`sce_sys/npbind.dat` and `param.sfo`) |
+| `gow3-log` | the set the dump names (`ps4`) | `<saves folder>/last_run.log` from the God of War III port launcher (gow3_pc) | game/update folder (`sce_sys/npbind.dat` and `param.sfo`); never guessed |
 | `bbport` | `ps4` (the original set) | `user/trophies.jsonl` (bbport with the Vigil patch) | title id (`CUSA03173`) |
 | `rpcs3` | `ps3` | `dev_hdd0/home/<user>/trophy/<NPWR…>/TROPUSR.DAT` | trophy set (folder name) |
 | `shadps4` | `ps4` | `user/home/<id>/trophy/<NPWR…>.xml` (and the older layout under `game_data`) | trophy set (file name / `<npcommid>`) |
@@ -64,9 +65,9 @@ sources with no games are not offered by the tray. Sources in the same folder ar
 how many games and trophies each one has.
 
 `detect` **does not scan the disk**. It checks a fixed list of install folders: Program Files,
-`%AppData%`, `%LocalAppData%`, their Linux and macOS equivalents, and the bbport launcher's
-`user_dir`. It looks only **one level** deep into the user folder, Desktop, Downloads, Documents and
-`C:\Games`. To look in another folder: `vigil-agent sources detect --in D:\Emulators`.
+`%AppData%`, `%LocalAppData%`, their Linux and macOS equivalents, and the bbport and God of War III
+launchers' folders. It looks only **one level** deep into the user folder, Desktop, Downloads,
+Documents and `Games` on each fixed drive (`C:\Games`, `D:\Games`...). To look in another folder: `vigil-agent sources detect --in D:\Emulators`.
 
 ## Official bbport (`bbport-log`, no patch)
 
@@ -127,6 +128,47 @@ vigil-agent play bbport --game-dir /path/CUSA03173 -- bash /path/to/bbport/run.s
 - The port's `run.sh` gets the launcher's settings through environment variables, and `play` uses the
   terminal's environment. If you change options in the launcher, run the game from the launcher once,
   or export the variables first.
+
+## God of War III port (`gow3-log`, gow3_pc)
+
+The God of War III Remastered PC port ([gow3_pc](https://github.com/FelipePrado0/gow3_pc)) prints
+the same line as bbport when the game unlocks a trophy (`src/runtime_services.c`, `trophy_unlock`),
+and its launcher writes the game output to **`<saves folder>/last_run.log`** (rewritten on every run,
+from the launcher window and with `--play`). The game turns off stdout buffering in `main()`, so
+the line is written immediately. This was checked in the port's code (tag `windows-v2.4.0`), not
+with a real playthrough yet.
+
+- **Detection** (no disk scan): the port launcher's settings (`%APPDATA%\gow3-launcher\settings.json`,
+  or `$XDG_CONFIG_HOME/gow3-launcher/settings.json` / `~/.config/...` on Linux) give `game_dir`,
+  `update_dir` and `user_dir`; an empty `user_dir` means the `user` folder next to the port. The
+  agent also recognizes the package itself (`gow3-windows`, with `bin/gow3-probe.exe`) in the
+  usual folders, next to the configured game folder (another disk), a running port, `GOW3_DATA_DIR`
+  and the AppImage data folder (`~/.local/share/gow3`). It is found **before the first trophy**, and
+  folders you stopped watching are not offered again.
+- **Identification**: the set comes from the dump, as the launcher reads it: the update folder when
+  it has an `eboot.bin`, otherwise the game folder; `sce_sys/param.sfo` must be God of War III
+  (`CUSA01623`, `CUSA01715`, `CUSA01720`, or a title with "God of War III") and
+  `sce_sys/npbind.dat` gives the `NPWR…` set. Nothing is guessed: **without that, nothing is sent**
+  (the folder says "Game not identified"), and the log is never reported as Bloodborne. The lines stay
+  in the file and are read once the game folder is set (in the port launcher or with
+  `--game-dir`/`--update-dir`).
+- Manual setup: `vigil-agent sources add gow3-log "C:\...\gow3-windows\user" --game-dir "D:\Games\CUSA01623"`
+  (`--update-dir` too, if the launcher has one).
+- Reading is the same as `bbport-log`: only the exact line, `\r\r\n` endings, partial lines
+  waited for, rewritten/replaced/shrunk logs read from the start, deterministic `event_id`s (no
+  duplicates), offline queue. A `trophies.log` next to it is not read (that journal is bbport's).
+- **Time**: the log has no date, so `unlocked_at` is when the agent read the line.
+- **Catalog**: the events go to the set the dump names. The catalog already has the PS4 set
+  `NPWR08268_00` ("God of War III Remastered", platform `ps4`), and the port's unlocks count there
+  with "Played on: PC port". If your dump names another set (another region), its unlocks wait as
+  pending until that set's catalog is added and approved; nothing is merged by name, and the PS3
+  (RPCS3) game stays a separate set. The port cannot propose a catalog itself (its trophy file is
+  encrypted).
+- **Limitations**:
+  - Keep the agent running while you play: the launcher rewrites the log on every run, and an old
+    log that was overwritten cannot be recovered.
+  - With the launcher's "close the launcher when playing" option on, the PLAY button writes **no**
+    log. Turn it off, or start with `--play` (shortcut), which always writes it.
 
 ## bbport with the Vigil patch (`bbport`)
 
@@ -204,7 +246,7 @@ shadPS4 stores trophy state as XML:
   prints and writes nothing when it is called, there is nothing to read. For those, the way forward is
   for the port to adopt the `trophies.jsonl` format (see `bbport-patch/FORMAT.md`).
 - Emulators that store trophies encrypted with no plain-text copy.
-- Official accounts (PSN, Xbox, Steam) and any other emulator or port. Nothing beyond the four sources
+- Official accounts (PSN, Xbox, Steam) and any other emulator or port. Nothing beyond the five sources
   above is implemented, with no promise of more.
 
 ## Where it was played (`played_on`)
@@ -213,7 +255,7 @@ Each unlock stores its source (`origin`) and, from it, where the game ran:
 
 | Source | `played_on` | Shown as |
 |---|---|---|
-| `bbport`, `bbport-log` | `pc-port` | PC port |
+| `bbport`, `bbport-log`, `gow3-log` | `pc-port` | PC port |
 | `rpcs3` | `pc-emulator-ps3` | PC emulator (PS3) |
 | `shadps4` | `pc-emulator-ps4` | PC emulator (PS4) |
 

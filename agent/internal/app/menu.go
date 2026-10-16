@@ -288,7 +288,7 @@ func AddCandidates(store *config.Store, cands []detect.Candidate) (int, error) {
 	added := 0
 	var errs []error
 	for _, c := range cands {
-		ok, err := store.AddSource(config.SourceConfig{Type: c.Type, Path: c.Path, GameDir: c.GameDir})
+		ok, err := store.AddSource(config.SourceConfig{Type: c.Type, Path: c.Path, GameDir: c.GameDir, UpdateDir: c.UpdateDir})
 		if err != nil {
 			errs = append(errs, err)
 		}

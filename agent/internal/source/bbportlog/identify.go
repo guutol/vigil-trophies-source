@@ -70,6 +70,19 @@ var errSFO = errors.New("param.sfo is not valid")
 // TitleIDFromSFO reads the TITLE_ID string of a param.sfo (little-endian PSF). Every offset is
 // checked against the data; a bad file gives an error, never a panic.
 func TitleIDFromSFO(data []byte) (string, error) {
+	title, err := SFOString(data, "TITLE_ID", 64)
+	if err != nil || title == "" {
+		return "", err
+	}
+	if !source.TitleIDPattern.MatchString(title) {
+		return "", errSFO
+	}
+	return title, nil
+}
+
+// SFOString reads one string value of a param.sfo ("" when the key is absent). Values longer than
+// max are refused. Every offset is checked against the data.
+func SFOString(data []byte, key string, max uint32) (string, error) {
 	le := binary.LittleEndian
 	if len(data) < 20 || !bytes.Equal(data[0:4], []byte("\x00PSF")) {
 		return "", errSFO
@@ -86,19 +99,15 @@ func TitleIDFromSFO(data []byte) (string, error) {
 			return "", errSFO
 		}
 		end := bytes.IndexByte(data[start:], 0)
-		if end < 0 || string(data[start:start+uint64(end)]) != "TITLE_ID" {
+		if end < 0 || string(data[start:start+uint64(end)]) != key {
 			continue
 		}
 		vStart := uint64(dataTable) + uint64(dataOff)
 		vEnd := vStart + uint64(length)
-		if length > 64 || vEnd > uint64(len(data)) {
+		if length > max || vEnd > uint64(len(data)) {
 			return "", errSFO
 		}
-		title := string(bytes.TrimRight(data[vStart:vEnd], "\x00"))
-		if !source.TitleIDPattern.MatchString(title) {
-			return "", errSFO
-		}
-		return title, nil
+		return string(bytes.TrimRight(data[vStart:vEnd], "\x00")), nil
 	}
 	return "", nil
 }

@@ -60,12 +60,12 @@ func TestFindLooksOnlyInObviousPlaces(t *testing.T) {
 
 	got := Find(Env{Home: home, AppData: appData, ProgramFiles: []string{pf}})
 	want := map[Candidate]bool{
-		{source.BBPortLog, bbUser, bbGame, true}:                  true, // the launcher's settings say so
-		{source.BBPortLog, logDir, bbGame, false}:                 true, // only the log says so; the launcher's game folder
-		{source.RPCS3, rp, "", true}:                              true,
-		{source.RPCS3, filepath.Join(appData, "rpcs3"), "", true}: true,
-		{source.ShadPS4, shadDesktop, "", true}:                   true,
-		{source.ShadPS4, filepath.Join(shadPF, "user"), "", true}: true,
+		{source.BBPortLog, bbUser, bbGame, true, ""}:                  true, // the launcher's settings say so
+		{source.BBPortLog, logDir, bbGame, false, ""}:                 true, // only the log says so; the launcher's game folder
+		{source.RPCS3, rp, "", true, ""}:                              true,
+		{source.RPCS3, filepath.Join(appData, "rpcs3"), "", true, ""}: true,
+		{source.ShadPS4, shadDesktop, "", true, ""}:                   true,
+		{source.ShadPS4, filepath.Join(shadPF, "user"), "", true, ""}: true,
 	}
 	if len(got) != len(want) {
 		t.Fatalf("got %v", got)

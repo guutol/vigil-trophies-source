@@ -19,6 +19,7 @@ import (
 	"github.com/vigil-tracker/agent/internal/source"
 	"github.com/vigil-tracker/agent/internal/source/bbport"
 	"github.com/vigil-tracker/agent/internal/source/bbportlog"
+	"github.com/vigil-tracker/agent/internal/source/detect"
 	"github.com/vigil-tracker/agent/internal/source/rpcs3"
 	"github.com/vigil-tracker/agent/internal/source/shadps4"
 	"github.com/vigil-tracker/agent/internal/syncer"
@@ -29,6 +30,12 @@ func OpenSource(c config.SourceConfig, logger *log.Logger) (source.Source, error
 	switch c.Type {
 	case source.BBPortLog:
 		return bbportlog.ForUserDir(c.Path, Identify(c.GameDir, logger))
+	case source.GOW3Log:
+		game, err := IdentifyGOW3(c)
+		if err != nil && logger != nil {
+			logger.Printf("gow3-log %s: %v; nothing is sent until the game folder is identified", c.Path, err)
+		}
+		return bbportlog.GOW3ForUserDir(c.Path, game, err)
 	case source.BBPort:
 		s, err := bbport.New(c.Path)
 		if err == nil && logger != nil {
@@ -110,6 +117,23 @@ func Identify(gameDir string, logger *log.Logger) bbportlog.Game {
 		logger.Printf("bbport-log: %v", err)
 	}
 	return game
+}
+
+// IdentifyGOW3 says which game and trophy set a God of War III port folder reports for: the saved
+// game folder, or, when that no longer identifies the game (moved, renamed), the one the port's
+// launcher is set to now. Never Bloodborne: without an identification the source sends nothing.
+func IdentifyGOW3(c config.SourceConfig) (bbportlog.Game, error) {
+	game, err := bbportlog.IdentifyGOW3(c.GameDir, c.UpdateDir)
+	if err == nil {
+		return game, nil
+	}
+	if live := detect.ReadGOW3Settings(detect.FromOSLight()); live.Found && live.GameDir != "" &&
+		(live.GameDir != c.GameDir || live.UpdateDir != c.UpdateDir) {
+		if g, err2 := bbportlog.IdentifyGOW3(live.GameDir, live.UpdateDir); err2 == nil {
+			return g, nil
+		}
+	}
+	return bbportlog.Game{}, err
 }
 
 // Proposer is the community-catalog sender, or nil when the user turned it off.

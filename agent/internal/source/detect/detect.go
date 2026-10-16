@@ -18,12 +18,15 @@ import (
 type Candidate struct {
 	Type string
 	Path string
-	// GameDir: for bbport-log, the game folder the bbport launcher is set to (may be empty).
+	// GameDir: for bbport-log and gow3-log, the game folder that says which trophy set it is (may be
+	// empty).
 	GameDir string
 	// Certain: the folder surely belongs to that program (its own settings point at it, or files
 	// only it creates are there). Uncertain candidates are only worth offering when they already
 	// hold trophies.
 	Certain bool
+	// UpdateDir: for gow3-log, the update folder the port's launcher is set to (may be empty).
+	UpdateDir string
 }
 
 // Env holds the folders detection starts from; FromOS fills it for the current user.
@@ -34,15 +37,21 @@ type Env struct {
 	ProgramFiles []string
 	GameDirs     []string // e.g. C:\Games
 	Extra        []string // more folders to look into (one level), e.g. from --in
+
+	XDGConfigHome string   // Linux $XDG_CONFIG_HOME (the port launcher's settings)
+	XDGDataHome   string   // Linux $XDG_DATA_HOME (the port AppImage's data folder)
+	GOW3DataDir   string   // $GOW3_DATA_DIR, when this user sets it for the God of War III port
+	RunningGOW3   []string // folders of a God of War III port running now (Windows)
 }
 
 // FromOS reads the current user's folders from the environment.
 func FromOS(extra []string) Env {
 	home, _ := os.UserHomeDir()
-	env := Env{Home: home, AppData: os.Getenv("APPDATA"), LocalAppData: os.Getenv("LOCALAPPDATA"), Extra: extra}
-	if vol := filepath.VolumeName(home); vol != "" {
-		env.GameDirs = append(env.GameDirs, vol+`\Games`)
-	}
+	env := baseEnv()
+	env.Extra = extra
+	env.RunningGOW3 = runningGOW3Dirs()
+	// <drive>:\Games on every fixed drive (one level each): ports are often on another disk.
+	env.GameDirs = append(env.GameDirs, gamesFolders(filepath.VolumeName(home))...)
 	seen := map[string]bool{}
 	for _, k := range []string{"ProgramFiles", "ProgramFiles(x86)", "ProgramW6432"} {
 		if v := os.Getenv(k); v != "" && !seen[strings.ToLower(v)] {
@@ -53,27 +62,50 @@ func FromOS(extra []string) Env {
 	return env
 }
 
+// FromOSLight is FromOS without the slow parts (no process list, no drive scan): enough to read the
+// launchers' settings.
+func FromOSLight() Env { return baseEnv() }
+
+// baseEnv is the current user's folders without anything slow (no process list).
+func baseEnv() Env {
+	home, _ := os.UserHomeDir()
+	return Env{Home: home, AppData: os.Getenv("APPDATA"), LocalAppData: os.Getenv("LOCALAPPDATA"),
+		XDGConfigHome: os.Getenv("XDG_CONFIG_HOME"), XDGDataHome: os.Getenv("XDG_DATA_HOME"),
+		GOW3DataDir: os.Getenv("GOW3_DATA_DIR")}
+}
+
 // maxEntries bounds how many subfolders of one folder are looked at.
 const maxEntries = 500
 
 // Find returns the candidates, deduplicated and sorted by type then path.
 func Find(env Env) []Candidate {
 	found := map[[2]string]Candidate{}
-	add := func(typ, path, gameDir string, certain bool) {
-		abs, err := filepath.Abs(path)
+	addCandidate := func(n Candidate) {
+		abs, err := filepath.Abs(n.Path)
 		if err != nil {
 			return
 		}
-		c := found[[2]string{typ, abs}]
-		c.Type, c.Path = typ, abs
-		if gameDir != "" {
-			c.GameDir = gameDir
+		c := found[[2]string{n.Type, abs}]
+		c.Type, c.Path = n.Type, abs
+		if n.GameDir != "" {
+			c.GameDir = n.GameDir
 		}
-		c.Certain = c.Certain || certain
-		found[[2]string{typ, abs}] = c
+		if n.UpdateDir != "" {
+			c.UpdateDir = n.UpdateDir
+		}
+		c.Certain = c.Certain || n.Certain
+		found[[2]string{n.Type, abs}] = c
 	}
+	add := func(typ, path, gameDir string, certain bool) {
+		addCandidate(Candidate{Type: typ, Path: path, GameDir: gameDir, Certain: certain})
+	}
+	gow3, near := findGOW3(env, addCandidate)
 	check := func(dir string) {
-		for _, c := range Classify(dir) {
+		gow3.check(dir)
+		for _, c := range classify(dir, gow3.settings) {
+			if c.Type == source.GOW3Log {
+				continue // gow3.check added it, with its game folder
+			}
 			add(c.Type, c.Path, "", c.Certain)
 		}
 		// Official portable archives wrap the executable directory once. Inspect only
@@ -129,6 +161,10 @@ func Find(env Env) []Candidate {
 	}
 	browse = append(browse, env.ProgramFiles...)
 	browse = append(browse, env.GameDirs...)
+	for _, dir := range near {
+		check(dir)
+	}
+	browse = append(browse, near...)
 	for _, dir := range env.Extra {
 		check(dir)
 	}
@@ -148,6 +184,12 @@ func Find(env Env) []Candidate {
 		}
 	}
 
+	// A God of War III saves folder holds "Runtime: trophy" lines too: it is the port's, never bbport's.
+	for key, c := range found {
+		if c.Type == source.BBPortLog && found[[2]string{source.GOW3Log, c.Path}].Type == source.GOW3Log {
+			delete(found, key)
+		}
+	}
 	out := make([]Candidate, 0, len(found))
 	for _, c := range found {
 		// There is one launcher per user: its game folder says the trophy set of every bbport
@@ -171,7 +213,25 @@ func Find(env Env) []Candidate {
 // last_run.log in bbport's format, or a trophies.jsonl in the Vigil patch's format); a game dump
 // or another emulator's folder with similarly named files is not enough.
 func Classify(dir string) []Candidate {
+	return classify(dir, ReadGOW3Settings(baseEnv()))
+}
+
+func classify(dir string, gow3 GOW3Settings) []Candidate {
+	// The God of War III port first: its saves folder also holds "Runtime: trophy" lines, and its
+	// package shares nothing with bbport, so the folder is the port's and never bbport's.
 	var out []Candidate
+	finder := gow3Finder{settings: gow3, add: func(c Candidate) { out = append(out, c) }}
+	switch {
+	case IsGOW3Package(dir):
+		finder.port(dir)
+		if gow3.UserDir != "" {
+			finder.userDir(gow3.UserDir, dir)
+		}
+		return out
+	case isGOW3UserDir(dir, gow3):
+		finder.userDir(dir, filepath.Dir(dir))
+		return out
+	}
 	for _, d := range []string{dir, filepath.Join(dir, "user")} {
 		ini := hasBBPortIni(d)
 		if f := filepath.Join(d, "trophies.jsonl"); isFile(f) && (ini || patchJSONL(f)) {

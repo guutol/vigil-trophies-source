@@ -20,12 +20,15 @@ import (
 const (
 	BBPort    = "bbport"     // trophies.jsonl written by the Vigil patch
 	BBPortLog = "bbport-log" // the official bbport's own output ("Runtime: trophy N unlocked")
-	RPCS3     = "rpcs3"
-	ShadPS4   = "shadps4"
+	// GOW3Log: the output of the God of War III Remastered port (FelipePrado0/gow3_pc), the same
+	// "Runtime: trophy N unlocked" lines in <saves folder>/last_run.log. Never Bloodborne.
+	GOW3Log = "gow3-log"
+	RPCS3   = "rpcs3"
+	ShadPS4 = "shadps4"
 )
 
 // Types lists the supported source types.
-var Types = []string{BBPort, BBPortLog, RPCS3, ShadPS4}
+var Types = []string{BBPort, BBPortLog, GOW3Log, RPCS3, ShadPS4}
 
 // Patterns shared by every source; they match the server's validation.
 var (
