@@ -33,6 +33,8 @@ func isolateLaunchers(t *testing.T) {
 		t.Setenv(k, empty)
 	}
 	t.Setenv("GOW3_DATA_DIR", "")
+	t.Setenv("SOTC_GAME_DIR", "")
+	t.Setenv("SOTC_USER_DIR", "")
 }
 
 // gow3Dump writes a synthetic game folder: param.sfo (title id, title) and npbind.dat (the set).

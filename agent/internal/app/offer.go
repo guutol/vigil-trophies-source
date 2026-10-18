@@ -18,7 +18,9 @@ import (
 //	   and bbport user folders are no longer taken for shadPS4.
 //	3: the God of War III port (gow3_pc): its launcher's saves folder, its package, the AppImage
 //	   data folder; its saves folder is no longer taken for bbport.
-const DetectVersion = 3
+//
+// 4: Shadow of the Colossus (AjncSystem), with its own identity and savedata normalization.
+const DetectVersion = 4
 
 // Offer is one folder in the "Sources found" dialog: every source type found in it (bbport's
 // user folder can hold both the patch file and the log), and what it holds. Replaces: configured

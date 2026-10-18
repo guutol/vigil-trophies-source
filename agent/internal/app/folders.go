@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"os"
 	"strings"
 
@@ -61,6 +62,9 @@ func (f Folder) Status(t Text, st Status) string {
 		return t.T("folder_status_missing")
 	}
 	for _, s := range f.Sources {
+		if errors.Is(s.Err, bbportlog.ErrSOTCUnidentified) {
+			return t.T("folder_status_sotc_unidentified")
+		}
 		if bbportlog.IsUnidentified(s.Err) {
 			return t.T("folder_status_gow3_unidentified")
 		}

@@ -18,7 +18,7 @@ import (
 type Candidate struct {
 	Type string
 	Path string
-	// GameDir: for bbport-log and gow3-log, the game folder that says which trophy set it is (may be
+	// GameDir: for bbport-log, gow3-log and sotc-log, the game folder that says which trophy set it is (may be
 	// empty).
 	GameDir string
 	// Certain: the folder surely belongs to that program (its own settings point at it, or files
@@ -38,9 +38,12 @@ type Env struct {
 	GameDirs     []string // e.g. C:\Games
 	Extra        []string // more folders to look into (one level), e.g. from --in
 
-	XDGConfigHome string   // Linux $XDG_CONFIG_HOME (the port launcher's settings)
-	XDGDataHome   string   // Linux $XDG_DATA_HOME (the port AppImage's data folder)
-	GOW3DataDir   string   // $GOW3_DATA_DIR, when this user sets it for the God of War III port
+	XDGConfigHome string // Linux $XDG_CONFIG_HOME (the port launcher's settings)
+	XDGDataHome   string // Linux $XDG_DATA_HOME (the port AppImage's data folder)
+	GOW3DataDir   string // $GOW3_DATA_DIR, when this user sets it for the God of War III port
+	SOTCGameDir   string
+	SOTCUserDir   string
+	RunningSOTC   []string
 	RunningGOW3   []string // folders of a God of War III port running now (Windows)
 }
 
@@ -50,6 +53,7 @@ func FromOS(extra []string) Env {
 	env := baseEnv()
 	env.Extra = extra
 	env.RunningGOW3 = runningGOW3Dirs()
+	env.RunningSOTC = runningSOTCDirs()
 	// <drive>:\Games on every fixed drive (one level each): ports are often on another disk.
 	env.GameDirs = append(env.GameDirs, gamesFolders(filepath.VolumeName(home))...)
 	seen := map[string]bool{}
@@ -71,7 +75,7 @@ func baseEnv() Env {
 	home, _ := os.UserHomeDir()
 	return Env{Home: home, AppData: os.Getenv("APPDATA"), LocalAppData: os.Getenv("LOCALAPPDATA"),
 		XDGConfigHome: os.Getenv("XDG_CONFIG_HOME"), XDGDataHome: os.Getenv("XDG_DATA_HOME"),
-		GOW3DataDir: os.Getenv("GOW3_DATA_DIR")}
+		SOTCGameDir: os.Getenv("SOTC_GAME_DIR"), SOTCUserDir: os.Getenv("SOTC_USER_DIR"), GOW3DataDir: os.Getenv("GOW3_DATA_DIR")}
 }
 
 // maxEntries bounds how many subfolders of one folder are looked at.
@@ -100,10 +104,13 @@ func Find(env Env) []Candidate {
 		addCandidate(Candidate{Type: typ, Path: path, GameDir: gameDir, Certain: certain})
 	}
 	gow3, near := findGOW3(env, addCandidate)
+	sotc, sotcNear := findSOTC(env, addCandidate)
+	near = append(near, sotcNear...)
 	check := func(dir string) {
+		sotc.check(dir)
 		gow3.check(dir)
-		for _, c := range classify(dir, gow3.settings) {
-			if c.Type == source.GOW3Log {
+		for _, c := range classifyWithSOTC(dir, gow3.settings, sotc.settings) {
+			if c.Type == source.GOW3Log || c.Type == source.SOTCLog {
 				continue // gow3.check added it, with its game folder
 			}
 			add(c.Type, c.Path, "", c.Certain)
@@ -186,7 +193,7 @@ func Find(env Env) []Candidate {
 
 	// A God of War III saves folder holds "Runtime: trophy" lines too: it is the port's, never bbport's.
 	for key, c := range found {
-		if c.Type == source.BBPortLog && found[[2]string{source.GOW3Log, c.Path}].Type == source.GOW3Log {
+		if c.Type == source.BBPortLog && (found[[2]string{source.GOW3Log, c.Path}].Type == source.GOW3Log || found[[2]string{source.SOTCLog, c.Path}].Type == source.SOTCLog) {
 			delete(found, key)
 		}
 	}
@@ -217,8 +224,14 @@ func Classify(dir string) []Candidate {
 }
 
 func classify(dir string, gow3 GOW3Settings) []Candidate {
+	return classifyWithSOTC(dir, gow3, ReadSOTCSettings(baseEnv()))
+}
+func classifyWithSOTC(dir string, gow3 GOW3Settings, sotc SOTCSettings) []Candidate {
 	// The God of War III port first: its saves folder also holds "Runtime: trophy" lines, and its
 	// package shares nothing with bbport, so the folder is the port's and never bbport's.
+	if out := classifySOTC(dir, sotc); len(out) > 0 {
+		return out
+	}
 	var out []Candidate
 	finder := gow3Finder{settings: gow3, add: func(c Candidate) { out = append(out, c) }}
 	switch {

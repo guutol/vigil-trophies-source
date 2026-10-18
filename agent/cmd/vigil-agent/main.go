@@ -45,13 +45,14 @@ Usage:
 
   vigil-agent sources detect [--in DIR]...               suggest source folders (read only, sends nothing)
   vigil-agent sources add <type> <path> [--game-dir DIR] [--update-dir DIR]
-                                                         add a source (type: bbport-log, gow3-log, bbport, rpcs3, shadps4)
+                                                         add a source (type: bbport-log, gow3-log, sotc-log, bbport, rpcs3, shadps4)
   vigil-agent sources remove <type> <path>               remove a source
   vigil-agent sources list                               list the configured sources
 
 Source folders:
   bbport-log  the official bbport's user folder (the launcher writes last_run.log there);
               --game-dir is the game folder (sce_sys) that says which trophy set it is
+  sotc-log    the Shadow of the Colossus port data folder (AjncSystem); reads last_run.log;
   gow3-log    the God of War III port's saves folder (gow3_pc; its launcher writes last_run.log there);
               --game-dir is the game folder (CUSA01623...) and --update-dir the update folder; without
               them the port launcher's own settings are used. Never reported as Bloodborne.
@@ -342,7 +343,7 @@ func sources(ctx context.Context, store *config.Store, args []string, out io.Wri
 			return fmt.Errorf("usage: vigil-agent sources %s <type> <path> [--game-dir DIR] [--update-dir DIR]", args[0])
 		}
 		fs := flag.NewFlagSet("sources "+args[0], flag.ContinueOnError)
-		gameDir := fs.String("game-dir", "", "bbport-log, gow3-log: the game folder (holds sce_sys)")
+		gameDir := fs.String("game-dir", "", "bbport-log, gow3-log, sotc-log: the game folder (holds sce_sys)")
 		updateDir := fs.String("update-dir", "", "gow3-log: the update folder the port's launcher uses")
 		if err := fs.Parse(args[3:]); err != nil {
 			return err
@@ -398,7 +399,7 @@ func sources(ctx context.Context, store *config.Store, args []string, out io.Wri
 			}
 			c.UpdateDir = abs
 		}
-		if *gameDir != "" && typ == source.GOW3Log {
+		if *gameDir != "" && (typ == source.GOW3Log || typ == source.SOTCLog) {
 			abs, err := filepath.Abs(*gameDir)
 			if err != nil {
 				return err
@@ -406,7 +407,7 @@ func sources(ctx context.Context, store *config.Store, args []string, out io.Wri
 			c.GameDir = abs
 		} else if *gameDir != "" {
 			if typ != source.BBPortLog {
-				return errors.New("--game-dir is only for bbport-log and gow3-log")
+				return errors.New("--game-dir is only for bbport-log, gow3-log and sotc-log")
 			}
 			abs, err := filepath.Abs(*gameDir)
 			if err != nil {
@@ -422,12 +423,16 @@ func sources(ctx context.Context, store *config.Store, args []string, out io.Wri
 			fmt.Fprintf(out, "Game folder: %s (trophy set %q, title %q)\n", abs, game.TrophySetID, game.TitleID)
 			c.GameDir = abs
 		}
-		if typ == source.GOW3Log {
+		if typ == source.GOW3Log || typ == source.SOTCLog {
 			// Says now whether trophies will be reported, and for which set; never Bloodborne.
-			if game, err := app.IdentifyGOW3(c); err != nil {
+			identify := app.IdentifyGOW3
+			if typ == source.SOTCLog {
+				identify = app.IdentifySOTC
+			}
+			if game, err := identify(c); err != nil {
 				fmt.Fprintf(out, "Warning: %v. Nothing is sent from this folder until the game folder is identified.\n", err)
 			} else {
-				fmt.Fprintf(out, "God of War III: trophy set %s, title %s\n", game.TrophySetID, game.TitleID)
+				fmt.Fprintf(out, "Identified game: trophy set %s, title %s\n", game.TrophySetID, game.TitleID)
 			}
 		}
 		added, err := store.AddSource(c)

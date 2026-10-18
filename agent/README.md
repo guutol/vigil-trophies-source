@@ -5,6 +5,7 @@ Programa pequeno (um `.exe`, sem instalar nada) que roda no PC do jogador. Ele:
 1. vincula o PC à conta do Vigil Trophies por um código curto (igual login de TV);
 2. lê os troféus que ports e emuladores gravam no disco: **bbport oficial** (o log
    `last_run.log` do launcher, sem patch), **bbport com o patch do Vigil** (`trophies.jsonl`),
+   **God of War III** e **Shadow of the Colossus (AjncSystem)** (`last_run.log`, beta),
    **RPCS3** (`TROPUSR.DAT`) e **shadPS4** (XML de troféus);
 3. envia os desbloqueios pro servidor, guardando numa fila local se o servidor estiver fora do ar.
 

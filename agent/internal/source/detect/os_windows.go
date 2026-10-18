@@ -52,7 +52,11 @@ var gow3Processes = map[string]bool{
 // runningGOW3Dirs is the port folder of every God of War III port running now: its executable's
 // folder (the parent of bin\ for the game itself). Only names and paths are read; nothing is
 // opened for writing, and a process that cannot be queried is skipped.
-func runningGOW3Dirs() []string {
+func runningGOW3Dirs() []string { return runningPortDirs(gow3Processes) }
+func runningSOTCDirs() []string {
+	return runningPortDirs(map[string]bool{"sotc.exe": true, "bb-probe.exe": true})
+}
+func runningPortDirs(names map[string]bool) []string {
 	snap, err := windows.CreateToolhelp32Snapshot(windows.TH32CS_SNAPPROCESS, 0)
 	if err != nil {
 		return nil
@@ -63,7 +67,7 @@ func runningGOW3Dirs() []string {
 	var out []string
 	seen := map[string]bool{}
 	for err = windows.Process32First(snap, &entry); err == nil; err = windows.Process32Next(snap, &entry) {
-		if !gow3Processes[strings.ToLower(windows.UTF16ToString(entry.ExeFile[:]))] {
+		if !names[strings.ToLower(windows.UTF16ToString(entry.ExeFile[:]))] {
 			continue
 		}
 		h, err := windows.OpenProcess(windows.PROCESS_QUERY_LIMITED_INFORMATION, false, entry.ProcessID)

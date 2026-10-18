@@ -3,12 +3,13 @@
 **English** · [Português](SOURCES.pt-BR.md)
 
 `vigil-agent` reads the trophies that ports and emulators write to the player's disk and sends them to
-the server. Each place it reads from is a **source**. There are five today:
+the server. Each place it reads from is a **source**. There are six today:
 
 | Source | Trophy set platform | What the agent reads | Identifies the game by |
 |---|---|---|---|
 | `bbport-log` | `ps4` (the original set) | `user/last_run.log` from the **official** bbport launcher (no patch), or the game output via `vigil-agent play` | game folder (`sce_sys/npbind.dat` and `param.sfo`) |
 | `gow3-log` | the set the dump names (`ps4`) | `<saves folder>/last_run.log` from the God of War III port launcher (gow3_pc) | game/update folder (`sce_sys/npbind.dat` and `param.sfo`); never guessed |
+| `sotc-log` | the set the dump names (`ps4`) | `<user folder>/last_run.log` from the AjncSystem Shadow of the Colossus launcher | game folder (`sce_sys/npbind.dat` and `param.sfo`); never guessed |
 | `bbport` | `ps4` (the original set) | `user/trophies.jsonl` (bbport with the Vigil patch) | title id (`CUSA03173`) |
 | `rpcs3` | `ps3` | `dev_hdd0/home/<user>/trophy/<NPWR…>/TROPUSR.DAT` | trophy set (folder name) |
 | `shadps4` | `ps4` | `user/home/<id>/trophy/<NPWR…>.xml` (and the older layout under `game_data`) | trophy set (file name / `<npcommid>`) |
@@ -18,6 +19,34 @@ tests, never with game files. They follow the format each emulator's own code wr
 not read as it should be, open an issue without attaching game files.
 
 ## Rules for every source
+
+### Shadow of the Colossus PC (beta)
+
+Supports the Windows launcher in [AjncSystem/ShadowOfTheColossus-PC](https://github.com/AjncSystem/ShadowOfTheColossus-PC), inspected at v0.57.
+Detection reads `%APPDATA%/sotc-launcher/settings.json` (`game_dir`, `user_dir`),
+recognizes the `SotC-PC` portable package in the usual folders and a running `SotC.exe`
+or its runtime. The shared `bb-probe.exe` filename alone does not identify Shadow.
+An empty `user_dir` means `<port>/user`; a selected `savedata` subtree is normalized
+as the launcher does. Explicit `SOTC_GAME_DIR` / `SOTC_USER_DIR` environment paths
+are also recognized. This is bounded discovery, not a recursive disk scan.
+
+Accept the detected folder and leave Vigil running while playing. The launcher must
+write `last_run.log`: turn **off** "close the launcher when playing", or use its `--play`
+shortcut. Vigil reads `Runtime: trophy N unlocked` without modifying game files.
+An unidentified dump sends nothing; the folder explains the missing metadata.
+Logs are overwritten every session and have no trophy timestamps: lost sessions cannot
+be reconstructed, and dates represent when Vigil read the event. Direct `sotc.py` runs
+without output redirected to `last_run.log` are not supported by this reader.
+
+The published catalog is `NPWR13427_00` / `CUSA08809`: 38 trophies (1 platinum,
+5 gold, 7 silver, 25 bronze), with English and official Brazilian Portuguese texts.
+Other sets stay pending rather than being merged with Bloodborne, God of War or PS3 Shadow.
+Detection, rewritten logs, partial lines, offline delivery, independent game identities,
+notifications and server platinum calculation were tested with synthetic unlocks.
+The actual 38-entry catalog was loaded into a disposable API and reimported without losing progress.
+**A real playthrough has not been tested.**
+
+### Shared reader guarantees
 
 - **Read-only.** The agent never writes, moves, renames or deletes anything in emulator folders. What
   it writes stays in its own folder (`%AppData%\vigil`).

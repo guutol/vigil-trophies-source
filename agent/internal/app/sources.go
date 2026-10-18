@@ -30,6 +30,12 @@ func OpenSource(c config.SourceConfig, logger *log.Logger) (source.Source, error
 	switch c.Type {
 	case source.BBPortLog:
 		return bbportlog.ForUserDir(c.Path, Identify(c.GameDir, logger))
+	case source.SOTCLog:
+		game, err := IdentifySOTC(c)
+		if err != nil && logger != nil {
+			logger.Printf("sotc-log: %v; nothing is sent until identification succeeds", err)
+		}
+		return bbportlog.SOTCForUserDir(c.Path, game, err)
 	case source.GOW3Log:
 		game, err := IdentifyGOW3(c)
 		if err != nil && logger != nil {
@@ -212,4 +218,16 @@ func CountPerGame(unlocks []source.Unlock) []string {
 		lines = append(lines, fmt.Sprintf("%s: %d unlocked", k, counts[k]))
 	}
 	return lines
+}
+
+func IdentifySOTC(c config.SourceConfig) (bbportlog.Game, error) {
+	g, err := bbportlog.IdentifySOTC(c.GameDir)
+	if err == nil {
+		return g, nil
+	}
+	live := detect.ReadSOTCSettings(detect.FromOSLight())
+	if live.Found && live.GameDir != "" && (live.UserDir == "" || config.FolderKey(live.UserDir) == config.FolderKey(c.Path)) {
+		return bbportlog.IdentifySOTC(live.GameDir)
+	}
+	return g, err
 }

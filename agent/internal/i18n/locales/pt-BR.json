@@ -1,4 +1,6 @@
 {
+  "src_sotc-log": "Shadow of the Colossus — port para PC",
+  "folder_status_sotc_unidentified": "Jogo não identificado: escolha a pasta do jogo no launcher do Shadow. Nada é enviado até lá.",
   "a11y_back": "Voltar para %s",
   "a11y_selected": "selecionado",
   "a11y_submenu": "abre um submenu",

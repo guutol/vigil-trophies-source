@@ -55,7 +55,7 @@ func (s *Store) OutboxPath() string { return s.path("outbox.jsonl") }
 // ---- config.json: server and sources ----
 
 // SourceConfig is one configured source: its type (bbport, bbport-log, rpcs3, shadps4) and
-// folder. GameDir is used by bbport-log and gow3-log: the game folder that says which trophy set it
+// folder. GameDir is used by bbport-log, gow3-log and sotc-log: the game folder that says which trophy set it
 // is. UpdateDir is used by gow3-log: the update folder the port's launcher is set to.
 type SourceConfig struct {
 	Type      string `json:"type"`

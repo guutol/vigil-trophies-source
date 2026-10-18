@@ -7,3 +7,5 @@ func gamesFolders(string) []string { return nil }
 
 // runningGOW3Dirs: the AppImage's data folder and the launcher's settings are enough on Linux.
 func runningGOW3Dirs() []string { return nil }
+
+func runningSOTCDirs() []string { return nil }

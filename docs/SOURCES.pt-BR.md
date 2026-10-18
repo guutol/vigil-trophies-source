@@ -3,12 +3,13 @@
 [English](SOURCES.md) · **Português**
 
 O `vigil-agent` lê os troféus que ports e emuladores gravam no disco do jogador e envia pro
-servidor. Cada lugar de onde ele lê é uma **fonte**. Hoje são cinco:
+servidor. Cada lugar de onde ele lê é uma **fonte**. Hoje são seis:
 
 | Fonte | Plataforma do conjunto | O que o agent lê | Identifica o jogo por |
 |---|---|---|---|
 | `bbport-log` | `ps4` (o conjunto original) | `user/last_run.log` do launcher do bbport **oficial** (sem patch), ou a saída do jogo via `vigil-agent play` | pasta do jogo (`sce_sys/npbind.dat` e `param.sfo`) |
 | `gow3-log` | o conjunto que o dump indica (`ps4`) | `<pasta de saves>/last_run.log` do launcher do port do God of War III (gow3_pc) | pasta do jogo/update (`sce_sys/npbind.dat` e `param.sfo`); nunca chutado |
+| `sotc-log` | o conjunto que o dump indica (`ps4`) | `<pasta de usuário>/last_run.log` do launcher do Shadow of the Colossus (AjncSystem) | pasta do jogo (`sce_sys/npbind.dat` e `param.sfo`); nunca chutado |
 | `bbport` | `ps4` (o conjunto original) | `user/trophies.jsonl` (bbport com o patch do Vigil) | title id (`CUSA03173`) |
 | `rpcs3` | `ps3` | `dev_hdd0/home/<usuário>/trophy/<NPWR…>/TROPUSR.DAT` | conjunto de troféus (nome da pasta) |
 | `shadps4` | `ps4` | `user/home/<id>/trophy/<NPWR…>.xml` (e o layout antigo em `game_data`) | conjunto de troféus (nome do arquivo / `<npcommid>`) |
@@ -18,6 +19,34 @@ testes (nunca com arquivos de jogo), seguindo o formato que o código de cada em
 não for lido como deveria, abra uma issue sem anexar arquivos do jogo.
 
 ## Regras que valem pra todas
+
+### Shadow of the Colossus PC (beta)
+
+Suporta o launcher Windows do [AjncSystem/ShadowOfTheColossus-PC](https://github.com/AjncSystem/ShadowOfTheColossus-PC), analisado na v0.57.
+A detecção lê `%APPDATA%/sotc-launcher/settings.json` (`game_dir`, `user_dir`),
+reconhece o pacote `SotC-PC` nas pastas usuais e o port em execução. O nome
+compartilhado `bb-probe.exe` sozinho não identifica o Shadow. Com `user_dir` vazio,
+usa `<port>/user`; uma pasta dentro de `savedata` é normalizada como no launcher.
+Também reconhece os caminhos explícitos `SOTC_GAME_DIR` / `SOTC_USER_DIR`.
+Não faz busca recursiva no disco.
+
+Aceite acompanhar a pasta e deixe o Vigil aberto enquanto joga. **Desligue a opção
+de fechar o launcher ao jogar**, ou use o atalho `--play`: o launcher precisa gravar
+`last_run.log`. O Vigil lê `Runtime: trophy N unlocked` sem alterar arquivos do jogo.
+Sem os metadados do dump, nada é enviado e a pasta informa o problema.
+O log é reescrito a cada sessão e não tem datas: sessões sobrescritas não podem
+ser recuperadas e a data do troféu é quando o Vigil o leu. Executar diretamente
+`sotc.py` sem capturar a saída em `last_run.log` não é suportado por esse leitor.
+
+Catálogo publicado: `NPWR13427_00` / `CUSA08809`, 38 troféus (1 platina,
+5 ouros, 7 pratas e 25 bronzes), em inglês e português brasileiro oficial.
+Outros conjuntos ficam pendentes; não são misturados com Bloodborne, God of War ou Shadow de PS3.
+Detecção, log reescrito, linhas incompletas, fila offline, identidade dos jogos,
+notificação e cálculo da platina foram testados com desbloqueios sintéticos.
+O catálogo real foi carregado e reimportado numa API descartável preservando progresso.
+**Ainda não foi testado numa partida real.**
+
+### Garantias dos leitores
 
 - **Só leitura.** O agent nunca escreve, move, renomeia ou apaga nada nas pastas dos emuladores.
   O que ele grava fica só na pasta dele (`%AppData%\vigil`).
