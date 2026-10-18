@@ -78,6 +78,12 @@ sincronização, autostart, mensagens), `internal/tray` (Win32: ícone, menu, ba
 
 ### Notificação de troféu
 
+Troféus ocultos usam nome e imagem reais depois da confirmação do servidor. O agent consulta
+`GET /api/agent/trophies/{conjunto-ou-title-id}/{troféu}?lang=` com o próprio vínculo; o servidor
+exige um desbloqueio salvo para aquela conta. Essa resposta não entra no cache público de nomes.
+Se os detalhes não estiverem disponíveis, o popup usa o nome/ícone genérico sem reenviar a conquista
+ou notificar duas vezes. A página pública continua ocultando spoilers.
+
 | Estilo | Como é |
 |---|---|
 | **Estilo Vigil** (padrão) | Card próprio no canto da tela: ícone do troféu (do servidor; sem ele, um ícone genérico do grau), nome, jogo, grau metálico e faixa azul; a **platina** tem fundo, borda, brilho e som próprios. Entra deslizando, fica ~5 s e sai; **clique** abre a página do jogo no site. Vários troféus aparecem um depois do outro; mais de 3 seguidos viram um resumo (platina sempre aparece sozinha) |

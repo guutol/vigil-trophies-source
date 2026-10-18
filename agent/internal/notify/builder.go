@@ -15,6 +15,11 @@ type GameSource interface {
 	GameInfo(ctx context.Context, setOrTitleID, lang string) (*api.GameInfo, error)
 }
 
+// UnlockedTrophySource resolves concealed metadata only for server-confirmed ownership.
+type UnlockedTrophySource interface {
+	UnlockedTrophy(ctx context.Context, setOrTitleID string, trophyID int, lang string) (*api.UnlockedTrophy, error)
+}
+
 // IconSource gives an icon's PNG (IconCache.Get).
 type IconSource interface {
 	Get(ctx context.Context, raw string) ([]byte, error)
@@ -99,12 +104,25 @@ func (b *Builder) Item(ctx context.Context, e outbox.Event) Item {
 	lang := b.language()
 	it := Item{Grade: Bronze, Trophy: T(lang, "trophy_n", e.TrophyID)}
 	g := b.game(ctx, key, lang)
-	if g == nil {
-		it.Icon = GenericIcon(it.Grade)
-		return it
+	var t api.TrophyInfo
+	known := false
+	if g != nil {
+		it.Game = g.Name
+		t, known = g.Trophies[e.TrophyID]
 	}
-	it.Game = g.Name
-	t, known := g.Trophies[e.TrophyID]
+	if !known || t.Hidden || t.Name == "" {
+		if owned, ok := b.Games.(UnlockedTrophySource); ok {
+			lookup, cancel := context.WithTimeout(ctx, 5*time.Second)
+			details, err := owned.UnlockedTrophy(lookup, key, e.TrophyID, lang)
+			cancel()
+			if err == nil && details != nil {
+				// Do not put private names in b.games: its public cache can outlive an account link.
+				t, known = details.TrophyInfo, true
+				it.Game = details.Game
+				g = &api.GameInfo{Name: details.Game, Slug: details.Slug, SetID: details.SetID}
+			}
+		}
+	}
 	if known {
 		it.Grade = NormalizeGrade(t.Grade)
 		if t.Name != "" {
@@ -119,7 +137,9 @@ func (b *Builder) Item(ctx context.Context, e outbox.Event) Item {
 	if it.Icon == nil {
 		it.Icon = GenericIcon(it.Grade)
 	}
-	it.URL = b.gameURL(g)
+	if g != nil {
+		it.URL = b.gameURL(g)
+	}
 	return it
 }
 

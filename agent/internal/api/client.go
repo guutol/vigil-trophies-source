@@ -235,6 +235,30 @@ type TrophyInfo struct {
 	Hidden  bool   `json:"hidden"`
 }
 
+// UnlockedTrophy contains notification details authorized for the linked account only.
+type UnlockedTrophy struct {
+	TrophyInfo
+	SetID string `json:"trophy_set_id"`
+	ID    int    `json:"id"`
+	Game  string `json:"game"`
+	Slug  string `json:"slug"`
+}
+
+// UnlockedTrophy asks for persisted ownership, never a public or another account's profile.
+// Callers must not cache this account-specific answer across unlocks or account changes.
+func (c *Client) UnlockedTrophy(ctx context.Context, setOrTitleID string, trophyID int, lang string) (*UnlockedTrophy, error) {
+	var out UnlockedTrophy
+	path := fmt.Sprintf("/api/agent/trophies/%s/%d?%s", url.PathEscape(setOrTitleID), trophyID,
+		url.Values{"lang": {lang}}.Encode())
+	if _, err := c.do(ctx, http.MethodGet, path, nil, true, &out); err != nil {
+		return nil, err
+	}
+	if out.ID != trophyID || out.SetID == "" || out.Name == "" {
+		return nil, errors.New("invalid unlocked trophy response")
+	}
+	return &out, nil
+}
+
 // GameInfo is what the notifications need from a game: its name, slug (for the game page) and trophies.
 type GameInfo struct {
 	Slug     string
