@@ -23,6 +23,7 @@ type notifier struct {
 	presenter *notify.Presenter
 	builder   *notify.Builder
 	server    string // the server the builder was made for
+	token     string // current link credential; never logged or exposed in the UI
 	windowsQ  notify.Queue
 	windowsOn bool // a goroutine is showing Windows notifications
 	// balloonURL is what a click on the last Windows notification opens: the download for an
@@ -51,16 +52,18 @@ func (n *notifier) takeBalloonURL() string {
 // builderFor returns the item builder for the current server and site.
 func (n *notifier) builderFor(site string) *notify.Builder {
 	server := n.c.store.Server()
+	token, _ := n.c.store.Token()
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	if n.builder == nil || n.server != server {
+	if n.builder == nil || n.server != server || n.token != token {
 		var games notify.GameSource
-		if client, err := api.New(server, ""); err == nil {
-			games = client // public game pages: no token
+		if client, err := api.New(server, token); err == nil {
+			games = client // GameInfo stays public; UnlockedTrophy sends the linked token.
 		}
 		n.builder = &notify.Builder{Games: games, Lang: n.c.language(),
 			Icons: &notify.IconCache{Dir: filepath.Join(n.c.store.Dir, "icons"), Server: server}}
 		n.server = server
+		n.token = token
 	}
 	n.builder.SiteURL = site
 	return n.builder
