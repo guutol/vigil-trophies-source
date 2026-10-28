@@ -10,6 +10,7 @@ package config
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -88,7 +89,7 @@ func (s *Store) SetSystemMenu(on bool) error {
 	defer s.settingsMu.Unlock()
 	cfg := s.settings()
 	cfg.SystemMenu = on
-	return writeJSON(s.path("config.json"), cfg)
+	return s.writeSettings(cfg)
 }
 
 // Language is the saved language choice: "auto" (the default), "en" or "pt-BR".
@@ -111,7 +112,7 @@ func (s *Store) SetLanguage(lang string) error {
 	default:
 		cfg.Language = ""
 	}
-	return writeJSON(s.path("config.json"), cfg)
+	return s.writeSettings(cfg)
 }
 
 // Notification styles and corners.
@@ -191,7 +192,7 @@ func (s *Store) SetNotifyPrefs(p NotifyPrefs) error {
 	cfg := s.settings()
 	n := p.Normalized()
 	cfg.Notifications = &n
-	return writeJSON(s.path("config.json"), cfg)
+	return s.writeSettings(cfg)
 }
 
 // TraySetupDone is true after the tray app's first-run source detection.
@@ -203,7 +204,7 @@ func (s *Store) SetTraySetupDone() error {
 	defer s.settingsMu.Unlock()
 	cfg := s.settings()
 	cfg.TraySetupDone = true
-	return writeJSON(s.path("config.json"), cfg)
+	return s.writeSettings(cfg)
 }
 
 // DetectVersion is the source detection version the tray app last offered.
@@ -215,7 +216,7 @@ func (s *Store) SetDetectVersion(v int) error {
 	defer s.settingsMu.Unlock()
 	cfg := s.settings()
 	cfg.DetectVersion = v
-	return writeJSON(s.path("config.json"), cfg)
+	return s.writeSettings(cfg)
 }
 
 // CatalogProposalsEnabled is on unless the user turned it off.
@@ -230,7 +231,7 @@ func (s *Store) SetCatalogProposals(on bool) error {
 	defer s.settingsMu.Unlock()
 	cfg := s.settings()
 	cfg.CatalogProposals = &on
-	return writeJSON(s.path("config.json"), cfg)
+	return s.writeSettings(cfg)
 }
 
 // HandledCatalogs are the trophy sets already proposed, known by the server or refused.
@@ -260,6 +261,17 @@ func (s *Store) settings() settings {
 	return cfg
 }
 
+// writeSettings refuses to overwrite an unreadable or malformed config file. Read-only getters
+// retain their historical default behavior, but a settings update must not silently erase data.
+func (s *Store) writeSettings(cfg settings) error {
+	var existing settings
+	err := readJSON(s.path("config.json"), &existing)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("cannot update config.json because it could not be read: %w", err)
+	}
+	return writeJSON(s.path("config.json"), cfg)
+}
+
 // Server returns the saved server URL, or DefaultServer.
 func (s *Store) Server() string {
 	if cfg := s.settings(); cfg.Server != "" {
@@ -274,7 +286,7 @@ func (s *Store) SetServer(server string) error {
 	defer s.settingsMu.Unlock()
 	cfg := s.settings()
 	cfg.Server = server
-	return writeJSON(s.path("config.json"), cfg)
+	return s.writeSettings(cfg)
 }
 
 // Sources returns the configured sources.
@@ -298,7 +310,10 @@ func (s *Store) AddSource(src SourceConfig) (bool, error) {
 	if !added && !changed {
 		return false, nil
 	}
-	return added, writeJSON(s.path("config.json"), cfg)
+	if err := s.writeSettings(cfg); err != nil {
+		return false, err
+	}
+	return added, nil
 }
 
 // RemoveSource deletes the sources with that type and path; returns how many were removed.
@@ -318,7 +333,10 @@ func (s *Store) RemoveSource(src SourceConfig) (int, error) {
 	if removed == 0 {
 		return 0, nil
 	}
-	return removed, writeJSON(s.path("config.json"), cfg)
+	if err := s.writeSettings(cfg); err != nil {
+		return 0, err
+	}
+	return removed, nil
 }
 
 // ---- token ----

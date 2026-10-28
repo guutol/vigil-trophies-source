@@ -27,11 +27,12 @@ type Event struct {
 
 // Outbox is the persistent queue. Not safe for concurrent use.
 type Outbox struct {
-	path   string
-	events []Event
+	path         string
+	events       []Event
+	corruptLines int
 }
 
-// Open loads path, or starts empty if it does not exist. Corrupt lines are dropped.
+// Open loads path, or starts empty if it does not exist. Invalid JSONL records are skipped and counted.
 func Open(path string) (*Outbox, error) {
 	o := &Outbox{path: path}
 	data, err := os.ReadFile(path)
@@ -42,14 +43,21 @@ func Open(path string) (*Outbox, error) {
 		return nil, err
 	}
 	sc := bufio.NewScanner(bytes.NewReader(data))
+	sc.Buffer(make([]byte, 64*1024), 1<<20) // Event lines should be small; allow ample room for older records.
 	for sc.Scan() {
 		var e Event
 		if json.Unmarshal(sc.Bytes(), &e) == nil && e.EventID != "" {
 			o.events = append(o.events, e)
+		} else {
+			o.corruptLines++
 		}
 	}
 	return o, sc.Err()
 }
+
+// CorruptLines is the number of invalid JSONL records skipped while opening the outbox.
+// Valid records are retained so recoverable events can still be sent.
+func (o *Outbox) CorruptLines() int { return o.corruptLines }
 
 // Len is the number of pending events.
 func (o *Outbox) Len() int { return len(o.events) }
@@ -76,8 +84,13 @@ func (o *Outbox) Add(events ...Event) error {
 	if len(events) == 0 {
 		return nil
 	}
+	old := o.events
 	o.events = append(o.events, events...)
-	return o.save()
+	if err := o.save(); err != nil {
+		o.events = old
+		return err
+	}
+	return nil
 }
 
 // Remove drops the events with the given ids and persists the queue.
@@ -86,14 +99,19 @@ func (o *Outbox) Remove(ids ...string) error {
 	for _, id := range ids {
 		drop[id] = true
 	}
-	kept := o.events[:0]
-	for _, e := range o.events {
+	old := o.events
+	kept := make([]Event, 0, len(old))
+	for _, e := range old {
 		if !drop[e.EventID] {
 			kept = append(kept, e)
 		}
 	}
 	o.events = kept
-	return o.save()
+	if err := o.save(); err != nil {
+		o.events = old
+		return err
+	}
+	return nil
 }
 
 // save rewrites the file atomically (temp file + rename).
