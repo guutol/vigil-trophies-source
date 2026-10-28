@@ -59,6 +59,9 @@ func New(client *api.Client, store *config.Store, sources []source.Source, logge
 	if err != nil {
 		return nil, fmt.Errorf("cannot open outbox: %w", err)
 	}
+	if ob.CorruptLines() > 0 {
+		logger.Printf("outbox: skipped %d corrupt line(s); valid queued events were preserved", ob.CorruptLines())
+	}
 	s := &Syncer{Client: client, Store: store, Outbox: ob, Sources: sources, Log: logger,
 		Backoff: NewBackoff(), Now: time.Now, known: store.Known(), lastError: map[string]string{}, live: map[string]bool{}}
 	// Crash recovery: anything in the outbox counts as known even if known.json was not saved.
@@ -103,18 +106,16 @@ func (s *Syncer) Scan(ctx context.Context) error {
 	first := s.scans == 0
 	s.scans++
 	var events []outbox.Event
+	queued := make(map[string]bool)
 	for _, src := range s.Sources {
 		unlocks, err := src.Scan(ctx)
 		s.report(src.Name(), err)
 		for _, u := range unlocks {
 			id := source.EventID(u)
-			if s.known[id] {
+			if s.known[id] || queued[id] {
 				continue
 			}
-			s.known[id] = true
-			if !first {
-				s.live[id] = true
-			}
+			queued[id] = true
 			events = append(events, outbox.Event{EventID: id, Source: u.Source, TrophySetID: u.TrophySetID,
 				TitleID: u.TitleID, TrophyID: u.TrophyID, UnlockedAt: u.UnlockedAt})
 		}
@@ -124,6 +125,14 @@ func (s *Syncer) Scan(ctx context.Context) error {
 	}
 	if err := s.Outbox.Add(events...); err != nil {
 		return fmt.Errorf("cannot save outbox: %w", err)
+	}
+	// Mark events known only after the durable queue write succeeds. If persistence fails,
+	// the next scan must be able to discover and queue the same unlocks again.
+	for _, e := range events {
+		s.known[e.EventID] = true
+		if !first {
+			s.live[e.EventID] = true
+		}
 	}
 	s.Log.Printf("queued %d new unlock(s)", len(events))
 	if err := s.Store.SetKnown(s.known); err != nil {
