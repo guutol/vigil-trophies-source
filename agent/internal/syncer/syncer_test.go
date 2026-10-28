@@ -125,6 +125,33 @@ func (f *fakeSource) Scan(context.Context) ([]source.Unlock, error) {
 
 var bg = context.Background()
 
+func TestFailedOutboxWriteCanBeRetriedOnNextScan(t *testing.T) {
+	e := newEnv(t)
+	u := source.Unlock{Source: "rpcs3", TrophySetID: "NPWR00001_00", TrophyID: 7}
+	src := &fakeSource{name: "rpcs3", unlocks: []source.Unlock{u}}
+	s := e.syncer(src)
+	// Force the atomic rename in outbox persistence to fail after the syncer has opened it.
+	if err := os.Mkdir(e.store.OutboxPath(), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Scan(bg); err == nil {
+		t.Fatal("expected outbox persistence error")
+	}
+	id := source.EventID(u)
+	if s.known[id] || s.Outbox.Len() != 0 {
+		t.Fatalf("failed persistence was treated as queued: known=%v pending=%d", s.known[id], s.Pending())
+	}
+	if err := os.Remove(e.store.OutboxPath()); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Scan(bg); err != nil {
+		t.Fatal(err)
+	}
+	if !s.known[id] || s.Pending() != 1 {
+		t.Fatalf("unlock was not queued after storage recovered: known=%v pending=%d", s.known[id], s.Pending())
+	}
+}
+
 func TestRestartKeepsEventIDs(t *testing.T) {
 	e := newEnv(t)
 	e.appendLines(1, 2, 3)
