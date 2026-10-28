@@ -72,6 +72,29 @@ func TestSourcesKeepTheServer(t *testing.T) {
 	}
 }
 
+func TestMalformedConfigIsNotOverwrittenBySettingsUpdate(t *testing.T) {
+	t.Setenv("VIGIL_CONFIG_DIR", t.TempDir())
+	s, err := Open()
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(s.Dir, "config.json")
+	original := []byte(`{"server":`)
+	if err := os.WriteFile(path, original, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetServer("https://example.test"); err == nil {
+		t.Fatal("expected update to reject malformed config")
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(original) {
+		t.Fatalf("malformed config was overwritten: %q", got)
+	}
+}
+
 func TestNotifyPrefsDefaultsAndRoundTrip(t *testing.T) {
 	t.Setenv("VIGIL_CONFIG_DIR", t.TempDir())
 	s, err := Open()
