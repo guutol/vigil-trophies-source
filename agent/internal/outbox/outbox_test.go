@@ -59,4 +59,43 @@ func TestOldAgentOutboxLinesStillLoad(t *testing.T) {
 	if err != nil || o.Len() != 1 || o.Peek(1)[0].TitleID != "CUSA03173" || o.Peek(1)[0].Source != "" {
 		t.Fatalf("old line: %v %+v", err, o.Peek(1))
 	}
+	if o.CorruptLines() != 1 {
+		t.Fatalf("want corrupt line count 1, got %d", o.CorruptLines())
+	}
+}
+
+func TestFailedWritesDoNotChangeInMemoryQueue(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "outbox.jsonl")
+	o, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Replacing a directory with the temporary output file fails on all supported platforms.
+	if err := os.Mkdir(path, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := o.Add(Event{EventID: "not-durable"}); err == nil {
+		t.Fatal("expected Add to fail")
+	}
+	if o.Len() != 0 {
+		t.Fatalf("failed Add changed in-memory queue: %+v", o.Peek(10))
+	}
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if err := o.Add(Event{EventID: "durable"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(path, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := o.Remove("durable"); err == nil {
+		t.Fatal("expected Remove to fail")
+	}
+	if o.Len() != 1 || o.Peek(1)[0].EventID != "durable" {
+		t.Fatalf("failed Remove changed in-memory queue: %+v", o.Peek(10))
+	}
 }
