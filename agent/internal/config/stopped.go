@@ -84,7 +84,7 @@ func (s *Store) StopWatching(path string, at time.Time) (removed int, err error)
 		list = append(list, f)
 	}
 	cfg.Stopped = append(list, stopped)
-	return len(stopped.Sources), writeJSON(s.path("config.json"), cfg)
+	return len(stopped.Sources), s.writeSettings(cfg)
 }
 
 // WatchAgain takes the folder off the stopped list and configures again what was there. It is the
@@ -114,7 +114,7 @@ func (s *Store) WatchAgain(path string) (restored int, err error) {
 			restored++
 		}
 	}
-	return restored, writeJSON(s.path("config.json"), cfg)
+	return restored, s.writeSettings(cfg)
 }
 
 func hasSource(list []SourceConfig, c SourceConfig) bool {
