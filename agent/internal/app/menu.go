@@ -26,12 +26,13 @@ const (
 	CmdUpdate      // open the official download of the newer version
 	CmdCheckUpdate // ask GitHub now
 	CmdSystemMenu
-	CmdCornerBase        = 900  // + index in config.Corners
-	CmdLangBase          = 950  // + index in LanguageChoices
-	CmdVolumeBase        = 960  // + index in config.Volumes
-	CmdFolderOpenBase    = 1000 // + index in Folders(Summaries): open the folder
-	CmdFolderStopBase    = 2000 // + index in Folders(Summaries): stop watching it
-	CmdFolderRestoreBase = 3000 // + index in MenuState.Stopped: watch it again
+	CmdCornerBase         = 900 // + index in config.Corners
+	CmdLangBase           = 950 // + index in LanguageChoices
+	CmdVolumeBase         = 960 // + index in config.Volumes
+	CmdMuteSoundDuringDND = 970
+	CmdFolderOpenBase     = 1000 // + index in Folders(Summaries): open the folder
+	CmdFolderStopBase     = 2000 // + index in Folders(Summaries): stop watching it
+	CmdFolderRestoreBase  = 3000 // + index in MenuState.Stopped: watch it again
 )
 
 // Item is one tray menu entry. ID 0 with an empty label is a separator.
@@ -240,10 +241,12 @@ func notifyMenu(t Text, p config.NotifyPrefs) Item {
 		corners = append(corners, Item{ID: CmdCornerBase + i, Label: t.T("corner_" + c), Checked: p.Corner == c,
 			Disabled: p.Style != config.StyleVigil})
 	}
-	volumes := make([]Item, 0, len(config.Volumes))
+	volumes := make([]Item, 0, len(config.Volumes)+2)
 	for i, v := range config.Volumes {
 		volumes = append(volumes, Item{ID: CmdVolumeBase + i, Label: t.T("vol_" + v), Checked: p.Volume == v})
 	}
+	volumes = append(volumes, Separator, Item{ID: CmdMuteSoundDuringDND, Label: t.T("mute_sound_during_dnd"),
+		Note: t.T("mute_sound_during_dnd_description"), Checked: p.MuteSoundDuringDNDEnabled()})
 	return Item{Label: t.T("notifications"), Icon: "bell", Sub: []Item{
 		{ID: CmdNotifyVigil, Label: t.T("notify_vigil"), Checked: p.Style == config.StyleVigil},
 		{ID: CmdNotifyWindows, Label: t.T("notify_windows"), Checked: p.Style == config.StyleWindows},

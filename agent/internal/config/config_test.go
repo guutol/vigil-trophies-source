@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -79,7 +80,7 @@ func TestNotifyPrefsDefaultsAndRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	p := s.NotifyPrefs()
-	if p.Style != StyleVigil || !p.SoundOn() || p.Volume != VolumeLow || p.Corner != CornerTopRight {
+	if p.Style != StyleVigil || !p.SoundOn() || p.Volume != VolumeLow || p.Corner != CornerTopRight || !p.MuteSoundDuringDNDEnabled() {
 		t.Fatalf("defaults: %+v", p)
 	}
 	if err := s.SetNotifyPrefs(NotifyPrefs{Style: StyleWindows, Volume: VolumeOff, Corner: CornerBottomLeft}); err != nil {
@@ -114,6 +115,39 @@ func TestOldSoundSettingAndVolumes(t *testing.T) {
 	}
 	if v := (NotifyPrefs{Volume: "deafening"}).Normalized().Volume; v != VolumeLow {
 		t.Fatal("unknown volume")
+	}
+}
+
+func TestMuteSoundDuringDNDLegacyDefaultAndRestartPersistence(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(`{"notifications":{"style":"windows","volume":"high"}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s := &Store{Dir: dir}
+	if !s.NotifyPrefs().MuteSoundDuringDNDEnabled() {
+		t.Fatal("missing field in an existing config must preserve DND muting")
+	}
+	falseValue := false
+	prefs := s.NotifyPrefs()
+	prefs.MuteSoundDuringDND = &falseValue
+	if err := s.SetNotifyPrefs(prefs); err != nil {
+		t.Fatal(err)
+	}
+	// A new Store simulates the application reading config.json after a restart.
+	restarted := &Store{Dir: dir}
+	if restarted.NotifyPrefs().MuteSoundDuringDNDEnabled() {
+		t.Fatal("explicit false did not persist across restart")
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "config.json"))
+	if err != nil || !strings.Contains(string(data), `"mute_sound_during_dnd": false`) {
+		t.Fatalf("saved config %s: %v", data, err)
+	}
+}
+
+func TestMuteSoundDuringDNDExplicitTrue(t *testing.T) {
+	trueValue := true
+	if !(NotifyPrefs{MuteSoundDuringDND: &trueValue}).MuteSoundDuringDNDEnabled() {
+		t.Fatal("explicit true was not retained")
 	}
 }
 

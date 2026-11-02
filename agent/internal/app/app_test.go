@@ -415,9 +415,13 @@ func TestNotificationsSubmenu(t *testing.T) {
 	if find(m, CmdNotifyTest).Label != "Testar notificação" {
 		t.Fatal("test entry")
 	}
+	if mute := find(m, CmdMuteSoundDuringDND); mute.Label != "Silenciar sons de notificação durante o Não perturbe" ||
+		mute.Note != "Quando ativado, os sons das notificações são silenciados enquanto o Não perturbe do Windows está ativo." || !mute.Checked {
+		t.Fatalf("DND sound option: %+v", mute)
+	}
 	m = BuildMenu(pt, MenuState{Status: Status{State: Running}})
 	if !find(m, CmdNotifyVigil).Checked || !find(m, CmdVolumeBase+1).Checked || !find(m, CmdCornerBase).Checked ||
-		!find(m, CmdLangBase).Checked || find(m, CmdLangBase).Label != "Automático" {
+		!find(m, CmdLangBase).Checked || find(m, CmdLangBase).Label != "Automático" || !find(m, CmdMuteSoundDuringDND).Checked {
 		t.Fatal("defaults: Vigil style, low volume, top right, automatic language")
 	}
 }

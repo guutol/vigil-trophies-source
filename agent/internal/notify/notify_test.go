@@ -355,6 +355,30 @@ func TestVolume(t *testing.T) {
 	}
 }
 
+func TestShouldMuteSoundDuringDND(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		active  bool
+		enabled bool
+		want    bool
+		queried bool
+	}{
+		{name: "enabled and DND active", active: true, enabled: true, want: true, queried: true},
+		{name: "disabled and DND active", active: true, enabled: false, want: false},
+		{name: "enabled and DND inactive", active: false, enabled: true, want: false, queried: true},
+		{name: "disabled and DND inactive", active: false, enabled: false, want: false},
+	} {
+		called := false
+		got := ShouldMuteSound(tc.enabled, func() bool {
+			called = true
+			return tc.active
+		})
+		if got != tc.want || called != tc.queried {
+			t.Errorf("%s: result/called = %t/%t, want %t/%t", tc.name, got, called, tc.want, tc.queried)
+		}
+	}
+}
+
 func TestUpdateNoticeIsItsOwnQuietCard(t *testing.T) {
 	up := UpdateItem("v0.1.0-beta.10", "https://github.com/guutol/vigil-agent-releases/releases/download/v0.1.0-beta.10/vigil-agent-tray.exe")
 	if !up.Silent() || up.IsPlatinum() || len(up.Icon) == 0 {

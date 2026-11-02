@@ -143,8 +143,10 @@ type NotifyPrefs struct {
 	Style  string `json:"style,omitempty"`
 	Volume string `json:"volume,omitempty"`
 	// Sound is the older on/off setting; "off" there becomes VolumeOff.
-	Sound  *bool  `json:"sound,omitempty"`
-	Corner string `json:"corner,omitempty"`
+	Sound *bool `json:"sound,omitempty"`
+	// MuteSoundDuringDND defaults on. A pointer distinguishes an omitted legacy field from false.
+	MuteSoundDuringDND *bool  `json:"mute_sound_during_dnd,omitempty"`
+	Corner             string `json:"corner,omitempty"`
 }
 
 // SoundOn is true unless the volume is off.
@@ -152,6 +154,10 @@ func (p NotifyPrefs) SoundOn() bool { return p.Normalized().Volume != VolumeOff 
 
 // Normalized fills defaults and drops unknown values.
 func (p NotifyPrefs) Normalized() NotifyPrefs {
+	if p.MuteSoundDuringDND == nil {
+		mute := true
+		p.MuteSoundDuringDND = &mute
+	}
 	switch p.Style {
 	case StyleVigil, StyleWindows, StyleOff:
 	default:
@@ -174,6 +180,13 @@ func (p NotifyPrefs) Normalized() NotifyPrefs {
 	}
 	p.Sound = nil
 	return p
+}
+
+// MuteSoundDuringDNDEnabled reports whether Windows Do Not Disturb suppresses notification audio.
+// Normalized preferences always have this value set.
+func (p NotifyPrefs) MuteSoundDuringDNDEnabled() bool {
+	p = p.Normalized()
+	return *p.MuteSoundDuringDND
 }
 
 // NotifyPrefs returns the saved preferences, normalized.

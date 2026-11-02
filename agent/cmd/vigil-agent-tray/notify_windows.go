@@ -160,7 +160,7 @@ func (n *notifier) windowsLoop() {
 		// Windows' own sound is always off: the app plays its chime at the chosen volume.
 		n.c.tray.NotifyIcon(title, body, it.Icon, true)
 		if !it.Silent() {
-			notify.PlaySound(it.IsPlatinum(), prefs.Volume)
+			notify.PlaySound(it.IsPlatinum(), prefs.Volume, prefs.MuteSoundDuringDNDEnabled())
 		}
 		time.Sleep(4 * time.Second)
 	}
@@ -187,6 +187,9 @@ func (n *notifier) command(id int) bool {
 		prefs.Style = config.StyleOff
 	case id >= app.CmdVolumeBase && id < app.CmdVolumeBase+len(config.Volumes):
 		prefs.Volume = config.Volumes[id-app.CmdVolumeBase]
+	case id == app.CmdMuteSoundDuringDND:
+		mute := !prefs.MuteSoundDuringDNDEnabled()
+		prefs.MuteSoundDuringDND = &mute
 	case id >= app.CmdCornerBase && id < app.CmdCornerBase+len(config.Corners):
 		prefs.Corner = config.Corners[id-app.CmdCornerBase]
 	case id == app.CmdNotifyTest:

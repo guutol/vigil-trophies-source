@@ -87,7 +87,7 @@ func notifyTest(store *config.Store, args []string, out io.Writer) error {
 				title = notify.Title(lang, it)
 			}
 			t.NotifyIcon(title, notify.Subtitle(lang, it), it.Icon, true)
-			notify.PlaySound(it.IsPlatinum(), prefs.Volume)
+			notify.PlaySound(it.IsPlatinum(), prefs.Volume, prefs.MuteSoundDuringDNDEnabled())
 			fmt.Fprintf(out, "shown: %s\n", title)
 			time.Sleep(4 * time.Second)
 		}

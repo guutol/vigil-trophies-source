@@ -21,6 +21,12 @@ func VolumeFactor(volume string) float64 {
 	return 0
 }
 
+// ShouldMuteSound reports whether DND state should suppress the sound. The detector is injected so
+// preference behavior can be tested without a Windows desktop; it is not called when muting is off.
+func ShouldMuteSound(muteDuringDND bool, dndActive func() bool) bool {
+	return muteDuringDND && dndActive != nil && dndActive()
+}
+
 // ScaleWAV returns a copy of a 16-bit PCM WAV with its samples multiplied by factor (0..1).
 func ScaleWAV(wav []byte, factor float64) ([]byte, error) {
 	if len(wav) < 12 || string(wav[0:4]) != "RIFF" || string(wav[8:12]) != "WAVE" {
