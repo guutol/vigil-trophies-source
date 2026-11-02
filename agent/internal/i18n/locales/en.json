@@ -68,6 +68,8 @@
   "no_sources": "No watched folders yet",
   "not_linked": "Not linked",
   "notifications": "Notifications",
+  "mute_sound_during_dnd": "Mute notification sounds during Do Not Disturb",
+  "mute_sound_during_dnd_description": "When enabled, notification sounds are muted while Windows Do Not Disturb is active.",
   "notify_off": "Off",
   "notify_test": "Test notification",
   "notify_vigil": "Vigil style",

@@ -68,6 +68,8 @@
   "no_sources": "Nenhuma pasta acompanhada ainda",
   "not_linked": "Não vinculado",
   "notifications": "Notificações",
+  "mute_sound_during_dnd": "Silenciar sons de notificação durante o Não perturbe",
+  "mute_sound_during_dnd_description": "Quando ativado, os sons das notificações são silenciados enquanto o Não perturbe do Windows está ativo.",
   "notify_off": "Desligadas",
   "notify_test": "Testar notificação",
   "notify_vigil": "Estilo Vigil",

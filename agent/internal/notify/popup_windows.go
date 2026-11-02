@@ -468,7 +468,7 @@ func (p *Presenter) next() {
 		p.pos.Y = work.Bottom - h - m
 	}
 	if !it.Silent() {
-		PlaySound(it.IsPlatinum(), prefs.Volume)
+		PlaySound(it.IsPlatinum(), prefs.Volume, prefs.MuteSoundDuringDNDEnabled())
 	}
 	p.paint(0, 0)
 	// SetWindowPos instead of ShowWindow: the first ShowWindow of a process follows how it was
@@ -526,10 +526,10 @@ func (p *Presenter) paint(alpha byte, dx int32) {
 }
 
 // PlaySound plays the chime (or the platinum one) at the chosen volume, unless the volume is off
-// or Windows is in Do not disturb / Focus assist.
-func PlaySound(platinum bool, volume string) {
+// or the preference says to mute while Windows is in Do not disturb / Focus assist.
+func PlaySound(platinum bool, volume string, muteDuringDND bool) {
 	sound := Sound(platinum, volume)
-	if len(sound) == 0 || Quiet() {
+	if len(sound) == 0 || ShouldMuteSound(muteDuringDND, Quiet) {
 		return
 	}
 	pPlaySoundW.Call(uintptr(unsafe.Pointer(&sound[0])), 0, sndAsync|sndMemory|sndNoDefault)

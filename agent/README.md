@@ -97,7 +97,8 @@ ou notificar duas vezes. A página pública continua ocultando spoilers.
 | ![resumo](../docs/screenshots/agent/pt-BR/notification-summary.png) | |
 
 - Menu **Notificações**: estilo, **Som** (*Desligado / Baixo / Médio / Alto*, padrão *Baixo*; o som é
-  suave e normalizado baixo, e fica mudo com o *Não perturbe* / *Assistente de foco* do Windows),
+  suave e normalizado baixo, e por padrão fica mudo com o *Não perturbe* / *Assistente de foco* do Windows;
+  desmarque **Silenciar sons de notificação durante o Não perturbe** para continuar ouvindo),
   **Posição** (4 cantos) e **Testar notificação**
   (um troféu de exemplo de cada grau, nada é enviado). Fica salvo no `config.json` (`notifications`).
 - Texto legível: tudo em semibold (Segoe UI Variable no Windows 11, Segoe UI antes), nome do troféu com
